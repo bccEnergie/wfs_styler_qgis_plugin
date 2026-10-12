@@ -18,6 +18,10 @@ class WfsStyleProbe(object):
         self.source_dict = self.get_source_dict(self.layer)
         self.wfs_url = QUrl(self.source_dict.get('url', None))
         self.layer_name = self.source_dict.get('typename', None)
+        # id of a QGIS "Authentication Configuration" (Settings > Options >
+        # Authentication) that was selected when the WFS connection was
+        # created. Empty string if the layer uses no stored authentication.
+        self.authcfg = self.source_dict.get('authcfg', None)
         self.styles = self.get_styles()
 
     def __str__(self):
@@ -44,7 +48,17 @@ class WfsStyleProbe(object):
         # print(url)
         request = QNetworkRequest(url)
         request.setRawHeader(b'Content-Type', b'application/xml')
+
         qgis_request = QgsBlockingNetworkRequest()
+        if self.authcfg:
+            # Tell the request to use the same QGIS Authentication
+            # Configuration (Settings > Options > Authentication) that was
+            # picked for the WFS connection. QgsBlockingNetworkRequest then
+            # pulls the stored username/password (or cert, token, etc.)
+            # from the encrypted auth database and applies it itself -
+            # the plugin code never sees the raw credentials.
+            qgis_request.setAuthCfg(self.authcfg)
+
         err = qgis_request.get(request, True)
         if err > 0:
             # TODO: return error code or None or something...
